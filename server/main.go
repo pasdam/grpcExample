@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net"
-	"sync"
 
 	"../gen/go"
 	"golang.org/x/net/context"
@@ -11,8 +10,6 @@ import (
 )
 
 type greetingServer struct {
-	sync.Mutex
-	last int64
 }
 
 // Returns a greeting message
