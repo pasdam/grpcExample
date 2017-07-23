@@ -4,7 +4,7 @@
 
 #include <grpc++/grpc++.h>
 
-#include "GreeterClientCli.h"
+#include "../core/GreeterClientCli.h"
 
 #include "../../gen/greeting.grpc.pb.h"
 
