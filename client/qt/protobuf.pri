@@ -18,7 +18,7 @@
 # set defaults
 isEmpty(PROTOC):PROTOC = protoc
 isEmpty(PROTOC_GRPC):PROTOC_GRPC = grpc_cpp_plugin
-isEmpty(PROTO_OUT_DIR):PROTO_DIR = .
+isEmpty(PROTO_OUT_DIR):PROTO_OUT_DIR = $$OUT_PWD
 
 # create includes parameters
 PROTOPATHS_PARAM =
@@ -28,8 +28,7 @@ for(path, PROTOPATH):PROTOPATHS_PARAM += --proto_path=$${path}
 protobuf_decl.input = PROTOS
 protobuf_decl.output = $${PROTO_OUT_DIR}/${QMAKE_FILE_BASE}.pb.h
 protobuf_decl.CONFIG = target_predeps
-protobuf_decl.commands = $${PROTOC} $${PROTOPATHS_PARAM} --cpp_out=$${PROTO_OUT_DIR} ${QMAKE_FILE_NAME};
-protobuf_decl.commands += $${PROTOC} $${PROTOPATHS_PARAM} --grpc_out=$${PROTO_OUT_DIR} --plugin=protoc-gen-grpc=$${PROTOC_GRPC} ${QMAKE_FILE_NAME};
+protobuf_decl.commands = $${PROTOC} $${PROTOPATHS_PARAM} --cpp_out=$${PROTO_OUT_DIR} --grpc_out=$${PROTO_OUT_DIR} --plugin=protoc-gen-grpc=$${PROTOC_GRPC} ${QMAKE_FILE_NAME};
 protobuf_decl.commands += $$escape_expand(\n\n)
 protobuf_decl.variable_out = HEADERS
 QMAKE_EXTRA_COMPILERS += protobuf_decl
