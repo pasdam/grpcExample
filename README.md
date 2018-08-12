@@ -6,6 +6,7 @@ This repository contains an example of a service defined with gRPC, a server wri
 * Go 1.8.3;
 * Protobuf 3.3.2;
 * Qt 5.9.
+
 Note: the code might works also with previous versions, but it was tested only with the specified ones.
 
 ## Project structure

@@ -3,13 +3,13 @@ SYSTEM ?= $(HOST_SYSTEM)
 CXX = g++
 CXXFLAGS += -I/usr/local/include -pthread -std=c++11
 ifeq ($(SYSTEM),Darwin)
-LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc`       \
-           -lgrpc++_reflection \
-           -lprotobuf -lpthread -ldl
+LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc` \
+		   -lgrpc++_reflection                              \
+		   -lprotobuf -lpthread -ldl
 else
 LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc`       \
-           -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed \
-           -lprotobuf -lpthread -ldl
+		   -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed \
+		   -lprotobuf -lpthread -ldl
 endif
 PROTOC = protoc
 GRPC_CPP_PLUGIN = grpc_cpp_plugin
