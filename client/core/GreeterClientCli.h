@@ -21,7 +21,7 @@ public:
 
     // Assembles the client's payload, sends it and presents the response back
     // from the server.
-    std::string Hello(const std::string& name) {
+	std::string hello(const std::string& name) {
         // Data we are sending to the server.
         GreetingRequest request;
         request.set_name(name);

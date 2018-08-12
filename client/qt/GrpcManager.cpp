@@ -7,5 +7,5 @@ GrpcManager::GrpcManager(QObject *parent)
 
 QString GrpcManager::send(const QString& name)
 {
-    return QString::fromStdString(mClient.Hello(name.toStdString()));
+    return QString::fromStdString(mClient.hello(name.toStdString()));
 }

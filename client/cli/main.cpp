@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
   std::string user;
   std::getline(std::cin, user);
 
-  std::string reply = greeter.Hello(user);
+  std::string reply = greeter.hello(user);
   std::cout << "Greeter received: " << reply << std::endl;
 
   return 0;
