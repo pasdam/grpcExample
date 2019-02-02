@@ -1,108 +1,143 @@
 HOST_SYSTEM = $(shell uname | cut -f 1 -d_)
-SYSTEM ?= $(HOST_SYSTEM)
-CXX = g++
-CXXFLAGS += -I/usr/local/include -pthread -std=c++11
-ifeq ($(SYSTEM),Darwin)
-LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc` \
-		   -lgrpc++_reflection                              \
-		   -lprotobuf -lpthread -ldl
+SYSTEM     ?= $(HOST_SYSTEM)
+CXX         = g++
+CXXFLAGS   += -I/usr/local/include -pthread -std=c++11
+ifeq ($(SYSTEM), Darwin)
+LDFLAGS    += -L/usr/local/lib `pkg-config --libs grpc++ grpc` \
+				-lgrpc++_reflection                              \
+				-lprotobuf -lpthread -ldl
 else
-LDFLAGS += -L/usr/local/lib `pkg-config --libs grpc++ grpc`       \
-		   -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed \
-		   -lprotobuf -lpthread -ldl
+LDFLAGS    += -L/usr/local/lib `pkg-config --libs grpc++ grpc`       \
+				-Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed \
+				-lprotobuf -lpthread -ldl
 endif
-PROTOC = protoc
-GRPC_CPP_PLUGIN = grpc_cpp_plugin
-GRPC_CPP_PLUGIN_PATH ?= `which $(GRPC_CPP_PLUGIN)`
+PROTOC                = protoc
+PLUGIN_GRPC_CPP       = grpc_cpp_plugin
+PLUGIN_GO             = protoc-gen-go
+PLUGIN_GRPC_CPP_PATH ?= `which $(PLUGIN_GRPC_CPP)`
 
-OUT_DIR = ./gen
-OUT_GO = $(OUT_DIR)/go
-PROTOS_PATH = ./protocol
+OUT_DIR               = ./gen
+OUT_CPP               = $(OUT_DIR)/cpp
+OUT_GO                = $(OUT_DIR)/go
+PROTOS_PATH           = ./protocol
 
 vpath %.proto $(PROTOS_PATH)
 
+################
+# Main targets #
+################
+
 .PHONY : all
 all: client-cli server
-
-# client-cli: $(OUT_DIR)/greeting.pb.o $(OUT_DIR)/greeting.grpc.pb.o client/cli/GreeterClientCli.h
-client-cli: $(OUT_DIR)/greeting.pb.o $(OUT_DIR)/greeting.grpc.pb.o $(OUT_DIR)/client-cli.o
-	@echo "Compiling client"
-	$(CXX) $^ $(LDFLAGS) -o $(OUT_DIR)/$@
-
-server: $(OUT_DIR)/greeting.pb.o $(OUT_DIR)/greeting.grpc.pb.o
-	@echo "Compiling server"
-
-$(OUT_DIR)/client-cli.o: client/cli/main.cpp | system-check
-	$(CXX) $(CXXFLAGS) -c -o $@ $^
-
-.PRECIOUS: $(OUT_DIR)/%.grpc.pb.cc
-$(OUT_DIR)/%.grpc.pb.cc: $(PROTOS_PATH)/%.proto | system-check
-	$(PROTOC) -I $(PROTOS_PATH) --go_out=plugins=grpc:$(OUT_GO) --grpc_out=$(OUT_DIR) --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $<
-
-.PRECIOUS: $(OUT_DIR)/%.pb.cc
-$(OUT_DIR)/%.pb.cc: $(PROTOS_PATH)/%.proto | system-check
-	$(PROTOC) -I $(PROTOS_PATH) --go_out=$(OUT_GO) --cpp_out=$(OUT_DIR) $<
-
-.PHONY: proto
-proto: | system-check
-	$(PROTOC) -I $(PROTOS_PATH) --go_out=$(OUT_GO) --cpp_out=$(OUT_DIR) protocol/*.proto
-	$(PROTOC) -I $(PROTOS_PATH) --go_out=plugins=grpc:$(OUT_GO) --grpc_out=$(OUT_DIR) --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) protocol/*.proto
 
 .PHONY: clean
 clean:
 	rm -rf $(OUT_DIR)
 
+client-cli: $(OUT_CPP)/greeting.pb.o $(OUT_CPP)/greeting.grpc.pb.o $(OUT_CPP)/client-cli.o
+	@echo "Compiling client"
+	$(CXX) $^ $(LDFLAGS) -I$(OUT_CPP) -o $(OUT_CPP)/$@
 
-# The following is to test your system and ensure a smoother experience.
-# They are by no means necessary to actually compile a grpc-enabled software.
+.PHONY: proto
+proto: $(OUT_CPP)/greeting.pb.cc $(OUT_CPP)/greeting.grpc.pb.cc $(OUT_GO)/greeting.pb.go | check-protobuf check-protoc-go
 
-PROTOC_CMD = which $(PROTOC)
-PROTOC_CHECK_CMD = $(PROTOC) --version | grep -q libprotoc.3
-PLUGIN_CHECK_CMD = which $(GRPC_CPP_PLUGIN)
-HAS_PROTOC = $(shell $(PROTOC_CMD) > /dev/null && echo true || echo false)
-ifeq ($(HAS_PROTOC),true)
-HAS_VALID_PROTOC = $(shell $(PROTOC_CHECK_CMD) 2> /dev/null && echo true || echo false)
-endif
-HAS_PLUGIN = $(shell $(PLUGIN_CHECK_CMD) > /dev/null && echo true || echo false)
+server: $(OUT_GO)/greeting.pb.go
+	@echo "Compiling server"
+	@go build server/main.go
 
-SYSTEM_OK = false
-ifeq ($(HAS_VALID_PROTOC),true)
-ifeq ($(HAS_PLUGIN),true)
-SYSTEM_OK = true
-endif
-endif
+.PHONY: start-client-cli
+start-client-cli:
+	@$(OUT_CPP)/client-cli
 
-system-check:
-ifneq ($(HAS_VALID_PROTOC),true)
-	@echo " DEPENDENCY ERROR"
+.PHONY: start-server
+start-server:
+	@go run server/main.go
+
+########################
+# Intermediate targets #
+########################
+
+$(OUT_CPP)/client-cli.o: client/cli/main.cpp
+	$(CXX) $(CXXFLAGS) -I$(OUT_CPP) -c -o $@ $^
+
+#################
+# Proto compile #
+#################
+
+# C++: gRPC
+.PRECIOUS: $(OUT_CPP)/%.grpc.pb.cc
+$(OUT_CPP)/%.grpc.pb.cc: $(PROTOS_PATH)/%.proto | check-protobuf $(OUT_CPP)
+	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=$(OUT_CPP) --plugin=protoc-gen-grpc=$(PLUGIN_GRPC_CPP_PATH) $<
+
+# C++: protobuf
+.PRECIOUS: $(OUT_CPP)/%.pb.cc
+$(OUT_CPP)/%.pb.cc: $(PROTOS_PATH)/%.proto | check-protobuf $(OUT_CPP)
+	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=$(OUT_CPP) $<
+
+# Go
+.PRECIOUS: $(OUT_GO)/%.pb.go
+$(OUT_GO)/%.pb.go: $(PROTOS_PATH)/%.proto | check-protoc-go $(OUT_GO)
+	$(PROTOC) -I $(PROTOS_PATH) --go_out=plugins=grpc:$(OUT_GO) $<
+
+########################
+# Prerequisites checks #
+########################
+
+# Check gRPC plugin
+HAS_PLUGIN_GRPC_CPP = $(shell which $(PLUGIN_GRPC_CPP) > /dev/null && echo true || echo false)
+.PHONY: check-grpc
+check-grpc: check-protobuf
 	@echo
-	@echo "You don't have protoc 3.0.0 installed in your path."
-	@echo "Please install Google protocol buffers 3.0.0 and its compiler."
-	@echo "You can find it here:"
-	@echo
-	@echo "   https://github.com/google/protobuf/releases/tag/v3.0.0"
-	@echo
-	@echo "Here is what I get when trying to evaluate your version of protoc:"
-	@echo
-	-$(PROTOC) --version
-	@echo
-	@echo
-endif
-ifneq ($(HAS_PLUGIN),true)
-	@echo " DEPENDENCY ERROR"
+ifneq ($(HAS_PLUGIN_GRPC_CPP), true)
+	@echo "DEPENDENCY ERROR"
 	@echo
 	@echo "You don't have the grpc c++ protobuf plugin installed in your path."
-	@echo "Please install grpc. You can find it here:"
+	@echo "You can find it here:"
 	@echo
 	@echo "   https://github.com/grpc/grpc"
 	@echo
-	@echo "Here is what I get when trying to detect if you have the plugin:"
-	@echo
-	-which $(GRPC_CPP_PLUGIN)
-	@echo
-	@echo
-endif
-ifneq ($(SYSTEM_OK),true)
 	@false
 endif
+
+# Check Go plugin
+HAS_PLUGIN_GO = $(shell which $(PLUGIN_GO) > /dev/null && echo true || echo false)
+.PHONY: check-protoc-go
+check-protoc-go: check-protobuf
+	@echo
+ifneq ($(HAS_PLUGIN_GO), true)
+	@echo "DEPENDENCY ERROR"
+	@echo
+	@echo "You don't have the grpc Go protobuf plugin installed in your path."
+	@echo "You can find it here:"
+	@echo
+	@echo "   https://github.com/golang/protobuf"
+	@echo
+	@false
+endif
+
+# Check protoc
+HAS_PROTOC = $(shell which $(PROTOC) > /dev/null && echo true || echo false)
+ifeq ($(HAS_PROTOC),true)
+HAS_PROTOC_VALID = $(shell $(PROTOC) --version | grep -q libprotoc.3 2> /dev/null && echo true || echo false)
+else
+HAS_PROTOC_VALID = false
+endif
+.PHONY: check-protobuf
+check-protobuf:
+ifneq ($(HAS_PROTOC_VALID), true)
+	@echo "DEPENDENCY ERROR"
+	@echo
+	@echo "You don't have protoc 3.x.x installed in your path."
+	@echo "Please install Google protocol buffers 3.x.x and its compiler."
+	@echo "You can find it here:"
+	@echo
+	@echo "   https://github.com/google/protobuf/releases/"
+	@echo
+	@false
+endif
+
+# Check required directories
+$(OUT_CPP):
+	mkdir -p $(OUT_CPP)
+$(OUT_GO):
 	mkdir -p $(OUT_GO)

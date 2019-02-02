@@ -1,2 +1,3 @@
+client/qt/.build
 gen/*
 GRPCExample.pro.user

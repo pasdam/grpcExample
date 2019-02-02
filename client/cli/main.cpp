@@ -6,7 +6,7 @@
 
 #include "../core/GreeterClientCli.h"
 
-#include "../../gen/greeting.grpc.pb.h"
+#include <greeting.grpc.pb.h>
 
 using grpc::Channel;
 using grpc::ClientContext;
