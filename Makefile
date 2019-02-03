@@ -14,11 +14,14 @@ endif
 PROTOC                = protoc
 PLUGIN_GRPC_CPP       = grpc_cpp_plugin
 PLUGIN_GO             = protoc-gen-go
+PLUGIN_GRPC_WEB       = protoc-gen-grpc-web
 PLUGIN_GRPC_CPP_PATH ?= `which $(PLUGIN_GRPC_CPP)`
 
+WEB_DIR               = ./client/web
 OUT_DIR               = ./gen
 OUT_CPP               = $(OUT_DIR)/cpp
 OUT_GO                = $(OUT_DIR)/go
+OUT_WEB               = $(WEB_DIR)/gen
 PROTOS_PATH           = ./protocol
 
 vpath %.proto $(PROTOS_PATH)
@@ -28,30 +31,33 @@ vpath %.proto $(PROTOS_PATH)
 ################
 
 .PHONY : all
-all: client-cli server
+all: client-cli client-web server
 
 .PHONY: clean
 clean:
 	rm -rf $(OUT_DIR)
+	rm -rf $(OUT_WEB)
+	rm -rf $(WEB_DIR)/dist
 
 client-cli: $(OUT_CPP)/greeting.pb.o $(OUT_CPP)/greeting.grpc.pb.o $(OUT_CPP)/client-cli.o
-	@echo "Compiling client"
 	$(CXX) $^ $(LDFLAGS) -I$(OUT_CPP) -o $(OUT_CPP)/$@
 
+.PHONY: client-web
+client-web: $(WEB_DIR)/dist/main.js
+
 .PHONY: proto
-proto: $(OUT_CPP)/greeting.pb.cc $(OUT_CPP)/greeting.grpc.pb.cc $(OUT_GO)/greeting.pb.go | check-protobuf check-protoc-go
+proto: $(OUT_CPP)/greeting.pb.cc $(OUT_CPP)/greeting.grpc.pb.cc $(OUT_GO)/greeting.pb.go | check-system
 
 server: $(OUT_GO)/greeting.pb.go
-	@echo "Compiling server"
-	@go build server/main.go
+	@go build -o $(OUT_GO)/server server/main.go
 
 .PHONY: start-client-cli
-start-client-cli:
+start-client-cli: | client-cli
 	@$(OUT_CPP)/client-cli
 
 .PHONY: start-server
-start-server:
-	@go run server/main.go
+start-server: | server
+	@$(OUT_GO)/server
 
 ########################
 # Intermediate targets #
@@ -60,35 +66,44 @@ start-server:
 $(OUT_CPP)/client-cli.o: client/cli/main.cpp
 	$(CXX) $(CXXFLAGS) -I$(OUT_CPP) -c -o $@ $^
 
+$(WEB_DIR)/dist/main.js: $(WEB_DIR)/client.js $(WEB_DIR)/package-lock.json $(OUT_WEB)/greeting_pb.js $(OUT_WEB)/greeting_grpc_web_pb.js
+	@cd $(WEB_DIR) && npx webpack client.js --mode development
+
+$(WEB_DIR)/package-lock.json: $(WEB_DIR)/package.json
+	@cd $(WEB_DIR) && npm install
+
 #################
 # Proto compile #
 #################
 
-# C++: gRPC
-.PRECIOUS: $(OUT_CPP)/%.grpc.pb.cc
-$(OUT_CPP)/%.grpc.pb.cc: $(PROTOS_PATH)/%.proto | check-protobuf $(OUT_CPP)
-	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=$(OUT_CPP) --plugin=protoc-gen-grpc=$(PLUGIN_GRPC_CPP_PATH) $<
-
 # C++: protobuf
-.PRECIOUS: $(OUT_CPP)/%.pb.cc
-$(OUT_CPP)/%.pb.cc: $(PROTOS_PATH)/%.proto | check-protobuf $(OUT_CPP)
-	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=$(OUT_CPP) $<
+.PRECIOUS: $(OUT_CPP)/%.pb.cc $(OUT_CPP)/%.grpc.pb.cc
+$(OUT_CPP)/%.pb.cc $(OUT_CPP)/%.grpc.pb.cc: $(PROTOS_PATH)/%.proto | $(OUT_CPP) check-cpp-grpc
+	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=$(OUT_CPP) --grpc_out=$(OUT_CPP) --plugin=protoc-gen-grpc=$(PLUGIN_GRPC_CPP_PATH) $<
 
 # Go
 .PRECIOUS: $(OUT_GO)/%.pb.go
-$(OUT_GO)/%.pb.go: $(PROTOS_PATH)/%.proto | check-protoc-go $(OUT_GO)
+$(OUT_GO)/%.pb.go: $(PROTOS_PATH)/%.proto | $(OUT_GO) check-protoc-go
 	$(PROTOC) -I $(PROTOS_PATH) --go_out=plugins=grpc:$(OUT_GO) $<
+
+# Web
+.PRECIOUS: $(OUT_WEB)/%_pb.js $(OUT_WEB)/%_grpc_web_pb.js
+$(OUT_WEB)/%_pb.js $(OUT_WEB)/%_grpc_web_pb.js: $(PROTOS_PATH)/%.proto | $(OUT_WEB) check-protoc-web
+	$(PROTOC) -I $(PROTOS_PATH) --js_out=import_style=commonjs:$(OUT_WEB) --grpc-web_out=import_style=commonjs,mode=grpcwebtext:$(OUT_WEB) $<
 
 ########################
 # Prerequisites checks #
 ########################
 
+.PHONY: check-system
+check-system: check-cpp-grpc check-protoc-go check-protoc-web
+
 # Check gRPC plugin
 HAS_PLUGIN_GRPC_CPP = $(shell which $(PLUGIN_GRPC_CPP) > /dev/null && echo true || echo false)
-.PHONY: check-grpc
-check-grpc: check-protobuf
-	@echo
+.PHONY: check-cpp-grpc
+check-cpp-grpc: check-protobuf
 ifneq ($(HAS_PLUGIN_GRPC_CPP), true)
+	@echo
 	@echo "DEPENDENCY ERROR"
 	@echo
 	@echo "You don't have the grpc c++ protobuf plugin installed in your path."
@@ -103,14 +118,30 @@ endif
 HAS_PLUGIN_GO = $(shell which $(PLUGIN_GO) > /dev/null && echo true || echo false)
 .PHONY: check-protoc-go
 check-protoc-go: check-protobuf
-	@echo
 ifneq ($(HAS_PLUGIN_GO), true)
+	@echo
 	@echo "DEPENDENCY ERROR"
 	@echo
 	@echo "You don't have the grpc Go protobuf plugin installed in your path."
 	@echo "You can find it here:"
 	@echo
 	@echo "   https://github.com/golang/protobuf"
+	@echo
+	@false
+endif
+
+# Check Go plugin
+HAS_PLUGIN_GRPC_WEB = $(shell which $(PLUGIN_GRPC_WEB) > /dev/null && echo true || echo false)
+.PHONY: check-protoc-web
+check-protoc-web: check-protobuf
+ifneq ($(HAS_PLUGIN_GRPC_WEB), true)
+	@echo
+	@echo "DEPENDENCY ERROR"
+	@echo
+	@echo "You don't have the grpc web protobuf plugin installed in your path."
+	@echo "You can find it here:"
+	@echo
+	@echo "   https://github.com/grpc/grpc-web"
 	@echo
 	@false
 endif
@@ -125,6 +156,7 @@ endif
 .PHONY: check-protobuf
 check-protobuf:
 ifneq ($(HAS_PROTOC_VALID), true)
+	@echo
 	@echo "DEPENDENCY ERROR"
 	@echo
 	@echo "You don't have protoc 3.x.x installed in your path."
@@ -141,3 +173,5 @@ $(OUT_CPP):
 	mkdir -p $(OUT_CPP)
 $(OUT_GO):
 	mkdir -p $(OUT_GO)
+$(OUT_WEB):
+	mkdir -p $(OUT_WEB)
