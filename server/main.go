@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 
-	"../gen/go"
+	"github.com/pasdam/grpcExample/server/gen/example"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

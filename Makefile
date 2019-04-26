@@ -20,7 +20,7 @@ PLUGIN_GRPC_CPP_PATH ?= `which $(PLUGIN_GRPC_CPP)`
 WEB_DIR               = ./client/web
 OUT_DIR               = ./gen
 OUT_CPP               = $(OUT_DIR)/cpp
-OUT_GO                = $(OUT_DIR)/go
+OUT_GO                = server/gen/example
 OUT_WEB               = $(WEB_DIR)/gen
 PROTOS_PATH           = ./protocol
 
@@ -35,6 +35,7 @@ all: client-cli client-web server
 
 .PHONY: clean
 clean:
+	rm -rf $(OUT_GO)
 	rm -rf $(OUT_DIR)
 	rm -rf $(OUT_WEB)
 	rm -rf $(WEB_DIR)/dist
