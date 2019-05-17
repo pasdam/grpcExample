@@ -1,3 +1,5 @@
+PROJECT_NAME = grpc-example
+
 HOST_SYSTEM = $(shell uname | cut -f 1 -d_)
 SYSTEM     ?= $(HOST_SYSTEM)
 CXX         = g++
@@ -26,6 +28,9 @@ PROTOS_PATH           = ./protocol
 
 vpath %.proto $(PROTOS_PATH)
 
+include scripts/makefiles/third_party/pasdam/makefiles/docker.mk
+include scripts/makefiles/third_party/pasdam/makefiles/help.mk
+
 ################
 # Main targets #
 ################
@@ -48,6 +53,9 @@ client-web: $(WEB_DIR)/dist/main.js
 
 .PHONY: proto
 proto: $(OUT_CPP)/greeting.pb.cc $(OUT_CPP)/greeting.grpc.pb.cc $(OUT_GO)/greeting.pb.go | check-system
+
+.PHONY: proto-go
+proto-go: $(OUT_GO)/greeting.pb.go
 
 server: $(OUT_GO)/greeting.pb.go
 	@go build -o $(OUT_GO)/server server/main.go
