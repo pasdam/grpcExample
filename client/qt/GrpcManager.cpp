@@ -2,7 +2,7 @@
 
 GrpcManager::GrpcManager(QObject *parent)
     : QObject(parent)
-    , mClient(grpc::CreateChannel("localhost:9001", grpc::InsecureChannelCredentials()))
+    , mClient(grpc::CreateChannel("localhost:8000", grpc::InsecureChannelCredentials()))
 {}
 
 QString GrpcManager::send(const QString& name)

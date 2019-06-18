@@ -17,9 +17,9 @@ using example::GreetingReply;
 int main(int argc, char** argv) {
   // Instantiate the client. It requires a channel, out of which the actual RPCs
   // are created. This channel models a connection to an endpoint (in this case,
-  // localhost at port 9001). We indicate that the channel isn't authenticated
+  // localhost at port 8000). We indicate that the channel isn't authenticated
   // (use of InsecureChannelCredentials()).
-  GreeterClientCli greeter(grpc::CreateChannel("localhost:9001", grpc::InsecureChannelCredentials()));
+  GreeterClientCli greeter(grpc::CreateChannel("localhost:8000", grpc::InsecureChannelCredentials()));
 
   std::cout << "Insert name: ";
   std::string user;

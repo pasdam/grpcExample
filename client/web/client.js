@@ -1,7 +1,7 @@
 const { GreetingRequest, RepeatGreetingRequest, GreetingReply } = require('./gen/greeting_pb.js');
 const { GreeterClient } = require('./gen/greeting_grpc_web_pb.js');
 
-var client = new GreeterClient('http://localhost:9001', null, null);
+var client = new GreeterClient('http://localhost:8000', null, null);
 
 // simple unary call
 var request = new GreetingRequest();

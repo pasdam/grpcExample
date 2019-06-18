@@ -27,11 +27,11 @@ docker run --rm -d --network="host" --name envoy -v <project_root>/client/web/en
 In this case we also need to change the `envoy.yaml` file, in particular the line:
 
 ```yaml
-hosts: [{ socket_address: { address: host.docker.internal, port_value: 9001 }}]
+hosts: [{ socket_address: { address: host.docker.internal, port_value: 8000 }}]
 ```
 
 should be:
 
 ```yaml
-hosts: [{ socket_address: { address: localhost, port_value: 9001 }}]
+hosts: [{ socket_address: { address: localhost, port_value: 8000 }}]
 ```

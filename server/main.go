@@ -19,7 +19,7 @@ func (g *greetingServer) Hello(ctx context.Context, r *example.GreetingRequest) 
 }
 
 func main() {
-	lis, err := net.Listen("tcp", "localhost:9001")
+	lis, err := net.Listen("tcp", "localhost:8000")
 	if err != nil {
 		panic(err)
 	}

@@ -28,4 +28,6 @@ WORKDIR /opt/app
 
 COPY --from=builder /var/tmp/app/.build/app .
 
+EXPOSE 8000
+
 CMD [ "./app" ]
